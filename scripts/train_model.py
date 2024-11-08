@@ -2,29 +2,28 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
-from sklearn.preprocessing import LabelEncoder
 import joblib
 
 print("Loading processed dataset...")
 df = pd.read_csv("data/processed_league_data.csv")
 print("Dataset loaded successfully!")
 
-# Encode categorical variables (HomeTeam and AwayTeam)
-le = LabelEncoder()
-df['HomeTeam'] = le.fit_transform(df['HomeTeam'])
-df['AwayTeam'] = le.fit_transform(df['AwayTeam'])
+# Load the saved LabelEncoder and StandardScaler (if needed)
+le = joblib.load('models/team_label_encoder.pkl')
+scaler = joblib.load('models/feature_scaler.pkl')
+
+
 
 # Definer features and target
 features = [
-    'HomeTeamPoints', 'AwayTeamPoints',
-    'HomeTeamGoalDifference', 'AwayTeamGoalDifference',
-    'HS', 'HST', 'AS', 'AST'
+    'HomeTeamPoints', 'AwayTeamPoints', 'HomeTeamGoalDifference', 'AwayTeamGoalDifference',
+    'HS', 'HST', 'AS', 'AST', 'GoalDifference'
 ]
 target = 'FTR'
 
 # Dropp rader som mangler verdier fra heler databildet
 print("Dropping rows with missing values...")
-df.dropna(inplace=True)
+df.dropna(subset=features + [target], inplace=True)
 
 # Split data into features and target
 X = df[features]
@@ -52,5 +51,8 @@ print(f"model accuracy: {accuracy * 100:.2f}%")
 joblib.dump(model, "models/pl_table_predictor.pkl")
 print("model saved as: models/pl_table_predictor.pkl")
 
+# Save the feature names
+joblib.dump(features, "models/feature_names.pkl")
+print("Feature names saved as 'models/feature_names.pkl'")
 
 
