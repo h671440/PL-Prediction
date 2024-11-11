@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import classification_report
 import joblib
 
 print("Loading processed dataset...")
@@ -16,8 +17,8 @@ scaler = joblib.load('models/feature_scaler.pkl')
 
 # Definer features and target
 features = [
-    'HomeTeamPoints', 'AwayTeamPoints', 'HomeTeamGoalDifference', 'AwayTeamGoalDifference',
-    'HS', 'HST', 'AS', 'AST', 'GoalDifference'
+    'HS', 'HST', 'AS', 'AST', 'GoalDifference',
+    'ShotsEfficiency_Home', 'ShotsEfficiency_Away'
 ]
 target = 'FTR'
 
@@ -28,7 +29,6 @@ df.dropna(subset=features + [target], inplace=True)
 # Split data into features and target
 X = df[features]
 y = df[target]
-
 print(f"Shape of X: {X.shape}")
 print(f"Shape of y: {y.shape}")
 
@@ -46,6 +46,9 @@ model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
 accuracy = accuracy_score(y_test, y_pred)
 print(f"model accuracy: {accuracy * 100:.2f}%")
+
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
 
 #lagre den trenede modellen
 joblib.dump(model, "models/pl_table_predictor.pkl")

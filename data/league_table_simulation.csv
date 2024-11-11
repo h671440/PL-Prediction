@@ -1,41 +1,21 @@
 Position,Team,points,goal_difference
-1,Arsenal,38,0.0
-2,Aston Villa,38,0.0
-3,Bournemouth,38,0.0
-4,Brentford,38,0.0
-5,Brighton,38,0.0
-6,Chelsea,38,0.0
-7,Crystal Palace,38,0.0
-8,Everton,38,0.0
-9,Fulham,38,0.0
-10,Ipswich Town,38,0.0
-11,Leicester City,38,0.0
-12,Liverpool,38,0.0
-13,Manchester City,38,0.0
-14,Manchester Utd,38,0.0
-15,Newcastle Utd,38,0.0
-16,Nottingham Forest,38,0.0
-17,Southampton,38,0.0
-18,Tottenham,38,0.0
-19,West Ham,38,0.0
-20,Wolves,38,0.0
-21,11,15,0.0
-22,17,15,0.0
-23,18,15,0.0
-24,12,14,0.0
-25,13,14,0.0
-26,14,14,0.0
-27,16,14,0.0
-28,19,14,0.0
-29,2,14,0.0
-30,3,14,0.0
-31,8,14,0.0
-32,0,13,0.0
-33,1,13,0.0
-34,10,13,0.0
-35,15,13,0.0
-36,5,13,0.0
-37,6,13,0.0
-38,7,13,0.0
-39,4,12,0.0
-40,9,12,0.0
+1,Arsenal,38,0
+2,Aston Villa,38,0
+3,Bournemouth,38,0
+4,Brentford,38,0
+5,Brighton,38,0
+6,Chelsea,38,0
+7,Crystal Palace,38,0
+8,Everton,38,0
+9,Fulham,38,0
+10,Ipswich,38,0
+11,Leicester,38,0
+12,Liverpool,38,0
+13,Man City,38,0
+14,Man United,38,0
+15,Newcastle,38,0
+16,Nott'm Forest,38,0
+17,Southampton,38,0
+18,Tottenham,38,0
+19,West Ham,38,0
+20,Wolves,38,0
