@@ -96,6 +96,36 @@ df['ShotsEfficiency_Home'] = df['HST'] / df['HS'].replace(0, 1)
 df['ShotsEfficiency_Away'] = df['AST'] / df['AS'].replace(0, 1)
 print("DataFrame shape after creating new features:", df.shape)
 
+# Create a new feature for team strength
+
+team_strengths = {
+    'Manchester City': 92,
+    'Liverpool': 89,
+    'Manchester Utd': 80,
+    'Chelsea': 82,
+    'Tottenham Hotspur': 82,
+    'Arsenal': 88,
+    'Newcastle Utd': 75,
+    'Aston Villa': 73,
+    'Brighton & Hove Albion': 72,
+    'West Ham United': 70,
+    'Wolverhampton': 68,
+    'Leicester City': 64,
+    'Everton': 62,
+    'Brentford': 61,
+    'Crystal Palace': 61,
+    'Fulham': 60,
+    'Southampton': 58,
+    'AFC Bournemouth': 58,
+    'Nottingham Forest': 59,
+    'Ipswich Town': 50
+}
+
+
+# Assign strength values to each team in the dataset
+df['HomeTeamStrength'] = df['HomeTeam'].map(team_strengths)
+df['AwayTeamStrength'] = df['AwayTeam'].map(team_strengths)
+
 # Convert result to numerical values
 print("Unique values in 'FTR' before mapping:", df['FTR'].unique())
 df['FTR'] = df['FTR'].map({'H': 2, 'D': 1, 'A': 0}).fillna(-1).astype(int)
@@ -141,10 +171,8 @@ df['Season'] = df['Date'].dt.year.astype(str)
 # Standardize numeric features
 print("Standardizing numeric features...")
 scaler = StandardScaler()
-numeric_features = [
-    'HS', 'AS', 'HST', 'AST',
-    'ShotsEfficiency_Home', 'ShotsEfficiency_Away'
-]
+numeric_features = ['HS', 'AS', 'HST', 'AST', 'ShotsEfficiency_Home',
+                     'ShotsEfficiency_Away', 'HomeTeamStrength', 'AwayTeamStrength']
 df[numeric_features] = scaler.fit_transform(df[numeric_features])
 
 #  Save the scaler and feature names

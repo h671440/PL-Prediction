@@ -19,15 +19,17 @@ scaler = joblib.load('models/feature_scaler.pkl')
 features = joblib.load('models/feature_names.pkl')
 print("Feature names loaded successfully!")
 
-target = 'FTR'
-
-if target in features:
-    features.remove(target) 
 
 # Fill missing values instead of dropping them
 print("Filling missing values in features and target...")
-df[features] = df[features].fillna(df[features].mean())
-# df[target] = df[target].fillna(df[target].mode()[0])
+for feature in features:
+    if feature in df.columns:
+        df[feature] = df[feature].fillna(df[feature].mean())
+
+target = 'FTR'
+
+
+
 
 # Analyze class distribution
 class_counts = df[target].value_counts()
