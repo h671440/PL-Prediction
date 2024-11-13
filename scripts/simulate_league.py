@@ -1,6 +1,10 @@
 import pandas as pd
 import joblib
 import numpy as np
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Load the trained model
 print("Loading trained model...")
@@ -26,14 +30,60 @@ print("LabelEncoder and StandardScaler loaded successfully!")
 features = joblib.load('models/feature_names.pkl')
 print("Feature names loaded successfully!")
 
+# Define the team name mapping dictionary and function
+team_name_mapping = {
+    'Man United': 'Manchester Utd',
+    'Ipswich': 'Ipswich Town',
+    'Newcastle': 'Newcastle Utd',
+    'Wolves': 'Wolverhampton',
+    'Nott\'m Forest': 'Nottingham Forest',
+    'West Ham': 'West Ham United',
+    'Brighton': 'Brighton & Hove Albion',
+    'Tottenham': 'Tottenham Hotspur',
+    'Spurs': 'Tottenham Hotspur',
+    'Leicester': 'Leicester City',
+    'Man City': 'Manchester City',
+    'Crystal Palace': 'Crystal Palace',
+    'Aston Villa': 'Aston Villa',
+    'Liverpool': 'Liverpool',
+    'Chelsea': 'Chelsea',
+    'Everton': 'Everton',
+    'Brentford': 'Brentford',
+    'Southampton': 'Southampton',
+    'Arsenal': 'Arsenal',
+    'Bournemouth': 'AFC Bournemouth',
+}
+
+def map_team_names(name):
+    return team_name_mapping.get(name, name)
+
+# Apply the mapping to current season results
+current_season_results = pd.read_csv("data/PL_202425.csv")
+current_season_results['HomeTeam'] = current_season_results['HomeTeam'].apply(map_team_names)
+current_season_results['AwayTeam'] = current_season_results['AwayTeam'].apply(map_team_names)
+
+# Apply the mapping to fixtures
+upcoming_fixtures['home'] = upcoming_fixtures['home'].apply(map_team_names)
+upcoming_fixtures['away'] = upcoming_fixtures['away'].apply(map_team_names)
+
 # Encode team names in upcoming fixtures using the saved LabelEncoder
 upcoming_fixtures['HomeTeam'] = le.transform(upcoming_fixtures['home'])
 upcoming_fixtures['AwayTeam'] = le.transform(upcoming_fixtures['away'])
 
-# Load the actual results of the current season
-print("Loading current season's results...")
-current_season_results = pd.read_csv("data/PL_202425.csv")
-print("Current season results loaded successfully!")
+ # Check for unknown teams
+unknown_teams = set(upcoming_fixtures['home']).union(set(upcoming_fixtures['away'])) - set(le.classes_)
+if unknown_teams:
+    print(f"Unknown teams found: {unknown_teams}")
+    # Handle unknown teams by adding them to the LabelEncoder
+    le.classes_ = np.append(le.classes_, list(unknown_teams))
+
+# Encode team names in upcoming fixtures using the saved LabelEncoder
+try:
+    upcoming_fixtures['HomeTeam'] = le.transform(upcoming_fixtures['home'])
+    upcoming_fixtures['AwayTeam'] = le.transform(upcoming_fixtures['away'])
+except ValueError as e:
+    logging.error(f"Error during team name encoding: {e}")
+    exit()
 
 # Filter necessary columns and encode team names
 current_season_results = current_season_results[['HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'HS', 'HST', 'AS', 'AST']]
@@ -41,7 +91,7 @@ current_season_results['HomeTeam'] = le.transform(current_season_results['HomeTe
 current_season_results['AwayTeam'] = le.transform(current_season_results['AwayTeam'])
 
 
-expected_features = scaler.feature_names_in_
+expected_features = features
 
 # Initialize standings based on actual results
 teams = le.transform(le.classes_)
@@ -68,6 +118,7 @@ for _, match in current_season_results.iterrows():
 
 # Identify played and remaining fixtures
 played_matches = current_season_results[['HomeTeam', 'AwayTeam']]
+played_matches = played_matches.copy()  # Avoid SettingWithCopyWarning
 played_matches['played'] = True
 
 fixtures = upcoming_fixtures.merge(played_matches, on=['HomeTeam', 'AwayTeam'], how='left')
@@ -91,11 +142,11 @@ for _, match in remaining_fixtures.iterrows():
     home_team = match['HomeTeam']
     away_team = match['AwayTeam']
 
-    # Get team statistics, with fallbacks
-    hs_avg = team_stats_home.loc[home_team]['HS'] if home_team in team_stats_home.index else df['HS'].mean()
-    hst_avg = team_stats_home.loc[home_team]['HST'] if home_team in team_stats_home.index else df['HST'].mean()
-    as_avg = team_stats_away.loc[away_team]['AS'] if away_team in team_stats_away.index else df['AS'].mean()
-    ast_avg = team_stats_away.loc[away_team]['AST'] if away_team in team_stats_away.index else df['AST'].mean()
+   # Use overall averages if team stats are missing
+    hs_avg = team_stats_home['HS'].mean() if home_team not in team_stats_home.index else team_stats_home.loc[home_team]['HS']
+    hst_avg = team_stats_home['HST'].mean() if home_team not in team_stats_home.index else team_stats_home.loc[home_team]['HST']
+    as_avg = team_stats_away['AS'].mean() if away_team not in team_stats_away.index else team_stats_away.loc[away_team]['AS']
+    ast_avg = team_stats_away['AST'].mean() if away_team not in team_stats_away.index else team_stats_away.loc[away_team]['AST']
 
     # Use current standings for goal differences
     home_team_goal_diff = standings[home_team]['goal_difference']
@@ -104,8 +155,8 @@ for _, match in remaining_fixtures.iterrows():
     # Prepare input features
     input_features_dict = {
         'HS': hs_avg,
-        'AS': as_avg,
         'HST': hst_avg,
+        'AS': as_avg,
         'AST': ast_avg,
         'GoalDifference': home_team_goal_diff - away_team_goal_diff,
         'ShotsEfficiency_Home': hst_avg / hs_avg if hs_avg != 0 else 0,
@@ -113,26 +164,30 @@ for _, match in remaining_fixtures.iterrows():
     }
 
    # Build the input DataFrame with the expected features
-    input_df = pd.DataFrame([input_features_dict], columns=expected_features)
-
-    # Check for missing features and handle them
-    missing_features = set(expected_features) - set(input_df.columns)
-    if missing_features:
-        print(f"Missing features: {missing_features}")
-        for feature in missing_features:
-            input_df[feature] = df[feature].mean()  # or another appropriate default value
+    input_df = pd.DataFrame([input_features_dict], columns=features)
 
     # Ensure features are in the correct order
-    input_df = input_df[expected_features]
+    input_df = input_df[features]
 
     # Standardize the input features using the saved StandardScaler
     input_df_scaled = scaler.transform(input_df)
 
+    # Reconstruct a DataFrame with the feature names
+    input_df_scaled = pd.DataFrame(input_df_scaled, columns=features)
+
     # Predict the match outcome
     prediction = model.predict(input_df_scaled)[0]
+    prediction_proba = model.predict_proba(input_df_scaled)[0]
 
-    # Simulate goal margin
-    goal_margin = np.random.poisson(1)
+    
+   # Adjust goal margin based on prediction probabilities
+    if prediction == 2:  # Home win
+        mean_goals = 1 + (prediction_proba[2] * 2)
+    elif prediction == 1:  # Draw
+        mean_goals = 1
+    else:  # Away win
+        mean_goals = 1 + (prediction_proba[0] * 2)
+    goal_margin = max(1, int(np.round(mean_goals)))
 
     # Update standings based on prediction
     if prediction == 2:  # Home win

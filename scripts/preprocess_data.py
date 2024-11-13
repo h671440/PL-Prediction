@@ -23,14 +23,56 @@ print("combined dataset shape: " , df.shape)
 # Load upcoming fixtures to get all teams
 print("Loading upcoming fixtures...")
 upcoming_fixtures = pd.read_csv("data/PL_202425_fixtures.csv")
+
+
+# Define a mapping dictionary to standardize team names
+team_name_mapping = {
+    'Man United': 'Manchester Utd',
+    'Ipswich': 'Ipswich Town',
+    'Newcastle': 'Newcastle Utd',
+    'Wolves': 'Wolverhampton',
+    'Nott\'m Forest': 'Nottingham Forest',
+    'West Ham': 'West Ham United',
+    'Brighton': 'Brighton & Hove Albion',
+    'Tottenham': 'Tottenham Hotspur',
+    'Spurs': 'Tottenham Hotspur',
+    'Leicester': 'Leicester City',
+    'Man City': 'Manchester City',
+    'Crystal Palace': 'Crystal Palace',
+    'Aston Villa': 'Aston Villa',
+    'Liverpool': 'Liverpool',
+    'Chelsea': 'Chelsea',
+    'Everton': 'Everton',
+    'Brentford': 'Brentford',
+    'Southampton': 'Southampton',
+    'Arsenal': 'Arsenal',
+    'Bournemouth': 'AFC Bournemouth',
+   
+}
+
+
+# Function to map team names
+def map_team_names(name):
+    return team_name_mapping.get(name, name)
+
+# Apply the mapping to historical data
+df['HomeTeam'] = df['HomeTeam'].apply(map_team_names)
+df['AwayTeam'] = df['AwayTeam'].apply(map_team_names)
+
+# Apply the mapping to fixtures
+upcoming_fixtures['home'] = upcoming_fixtures['home'].apply(map_team_names)
+upcoming_fixtures['away'] = upcoming_fixtures['away'].apply(map_team_names)
+
 current_teams = pd.unique(upcoming_fixtures[['home', 'away']].values.ravel('K'))
 print("print current teams", current_teams)
 
+
 #filtrer historiske data for nåverende lag..
 print("Filtering historical data for current season teams...")
-df = df[df['HomeTeam'].isin(current_teams) & df['AwayTeam'].isin(current_teams)]
+# df = df[df['HomeTeam'].isin(current_teams) & df['AwayTeam'].isin(current_teams)]
 print("Filtered dataset shape:", df.shape)
 print("DataFrame shape after filtering:", df.shape)
+
 
 # Check if DataFrame is empty
 if df.empty:
@@ -105,9 +147,10 @@ numeric_features = [
 ]
 df[numeric_features] = scaler.fit_transform(df[numeric_features])
 
-# Save the scaler
+#  Save the scaler and feature names
 joblib.dump(scaler, 'models/feature_scaler.pkl')
-print("Feature scaler saved successfully!")
+joblib.dump(numeric_features, 'models/feature_names.pkl')
+print("Feature scaler and feature names saved successfully!")
 
 # Save the processed data
 df.to_csv("data/processed_league_data.csv", index=False)
