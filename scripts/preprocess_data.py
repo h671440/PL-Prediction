@@ -5,7 +5,7 @@ import joblib
 
 print("Current working directory:", os.getcwd())
 
-data_files = ["data/PL_202425.csv", "data/PL_202324.csv", "data/PL_202223.csv"]
+data_files = [ "data/PL_202324.csv", "data/PL_202223.csv", "data/PL_202122.csv", "data/PL_202021.csv"] ## ekskludert årets sesongs tidligere resultater "data/PL_202425.csv"
 
 print("Loading datasets...")
 
@@ -66,18 +66,11 @@ upcoming_fixtures['away'] = upcoming_fixtures['away'].apply(map_team_names)
 current_teams = pd.unique(upcoming_fixtures[['home', 'away']].values.ravel('K'))
 print("print current teams", current_teams)
 
-
-#filtrer historiske data for nåverende lag..
+# Filter historical data for current teams
 print("Filtering historical data for current season teams...")
-# df = df[df['HomeTeam'].isin(current_teams) & df['AwayTeam'].isin(current_teams)]
+df = df[df['HomeTeam'].isin(current_teams) & df['AwayTeam'].isin(current_teams)]
 print("Filtered dataset shape:", df.shape)
-print("DataFrame shape after filtering:", df.shape)
 
-
-# Check if DataFrame is empty
-if df.empty:
-    print("No data available after filtering for current teams. Please check the fixtures and historical data.")
-    exit()
 
 # Step 4: Select Necessary Columns
 columns_needed = [
@@ -98,7 +91,7 @@ print("DataFrame shape after filling missing values:", df.shape)
 
 # Create new columns for goal difference and shot efficiency
 print("Creating new features...")
-df['GoalDifference'] = df['FTHG'] - df['FTAG']
+# df['GoalDifference'] = df['FTHG'] - df['FTAG']
 df['ShotsEfficiency_Home'] = df['HST'] / df['HS'].replace(0, 1)
 df['ShotsEfficiency_Away'] = df['AST'] / df['AS'].replace(0, 1)
 print("DataFrame shape after creating new features:", df.shape)
@@ -116,10 +109,17 @@ df.dropna(subset=critical_columns, inplace=True)
 print("DataFrame shape after dropping missing data in critical columns:", df.shape)
 
 
-# Get all team names from both datasets
+# Get all teams from historical data and upcoming fixtures
 teams_in_df = pd.concat([df['HomeTeam'], df['AwayTeam']]).unique()
-teams_in_fixtures = pd.concat([upcoming_fixtures['home'], upcoming_fixtures['away']]).unique()
+teams_in_fixtures = pd.unique(upcoming_fixtures[['home', 'away']].values.ravel('K'))
 all_teams = pd.Series(list(set(teams_in_df).union(set(teams_in_fixtures))))
+print("All teams:", all_teams.tolist())
+
+#filtrer historiske data for nåverende lag..
+print("Filtering historical data for current season teams...")
+df = df[df['HomeTeam'].isin(all_teams) & df['AwayTeam'].isin(all_teams)]
+print("Filtered dataset shape:", df.shape)
+print("DataFrame shape after filtering:", df.shape)
 
 # Fit LabelEncoder on all teams
 le = LabelEncoder()
@@ -142,7 +142,7 @@ df['Season'] = df['Date'].dt.year.astype(str)
 print("Standardizing numeric features...")
 scaler = StandardScaler()
 numeric_features = [
-    'HS', 'AS', 'HST', 'AST', 'GoalDifference',
+    'HS', 'AS', 'HST', 'AST',
     'ShotsEfficiency_Home', 'ShotsEfficiency_Away'
 ]
 df[numeric_features] = scaler.fit_transform(df[numeric_features])

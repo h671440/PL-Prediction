@@ -1,3 +1,4 @@
+import random
 import pandas as pd
 import joblib
 import numpy as np
@@ -59,6 +60,20 @@ def map_team_names(name):
 
 # Apply the mapping to current season results
 current_season_results = pd.read_csv("data/PL_202425.csv")
+
+# Ensure 'GameWeek' column exists
+if 'GameWeek' not in current_season_results.columns:
+    if 'Date' in current_season_results.columns:
+        current_season_results['Date'] = pd.to_datetime(current_season_results['Date'], format='%d/%m/%Y')
+        current_season_results = current_season_results.sort_values('Date')
+        current_season_results['GameWeek'] = (current_season_results.groupby('Date').ngroup()) + 1
+    else:
+        print("Error: Neither 'GameWeek' nor 'Date' column found in PL_202425.csv")
+        exit()
+
+# Filter to include only games up to game week 10
+current_season_results = current_season_results[current_season_results['GameWeek'] <= 10]
+
 current_season_results['HomeTeam'] = current_season_results['HomeTeam'].apply(map_team_names)
 current_season_results['AwayTeam'] = current_season_results['AwayTeam'].apply(map_team_names)
 
@@ -74,16 +89,14 @@ upcoming_fixtures['AwayTeam'] = le.transform(upcoming_fixtures['away'])
 unknown_teams = set(upcoming_fixtures['home']).union(set(upcoming_fixtures['away'])) - set(le.classes_)
 if unknown_teams:
     print(f"Unknown teams found: {unknown_teams}")
-    # Handle unknown teams by adding them to the LabelEncoder
-    le.classes_ = np.append(le.classes_, list(unknown_teams))
+    # Update the LabelEncoder to include unknown teams
+    le.classes_ = np.concatenate([le.classes_, np.array(list(unknown_teams))])
+    le.classes_.sort()
 
 # Encode team names in upcoming fixtures using the saved LabelEncoder
-try:
-    upcoming_fixtures['HomeTeam'] = le.transform(upcoming_fixtures['home'])
-    upcoming_fixtures['AwayTeam'] = le.transform(upcoming_fixtures['away'])
-except ValueError as e:
-    logging.error(f"Error during team name encoding: {e}")
-    exit()
+upcoming_fixtures['HomeTeam'] = le.transform(upcoming_fixtures['home'])
+upcoming_fixtures['AwayTeam'] = le.transform(upcoming_fixtures['away'])
+
 
 # Filter necessary columns and encode team names
 current_season_results = current_season_results[['HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'HS', 'HST', 'AS', 'AST']]
@@ -94,8 +107,8 @@ current_season_results['AwayTeam'] = le.transform(current_season_results['AwayTe
 expected_features = features
 
 # Initialize standings based on actual results
-teams = le.transform(le.classes_)
-standings = {team_id: {'points': 0, 'goal_difference': 0} for team_id in teams}
+teams_in_fixtures = le.transform(le.classes_)
+standings = {team_id: {'points': 0, 'goal_difference': 0} for team_id in teams_in_fixtures}
 
 for _, match in current_season_results.iterrows():
     home_team = match['HomeTeam']
@@ -137,20 +150,46 @@ team_stats_away = current_season_results.groupby('AwayTeam').agg({
     'AST': 'mean'
 }).rename_axis('Team')
 
+# Calculate league averages
+league_hs_avg = team_stats_home['HS'].mean()
+league_hst_avg = team_stats_home['HST'].mean()
+league_as_avg = team_stats_away['AS'].mean()
+league_ast_avg = team_stats_away['AST'].mean()
+
+def blended_average(team_avg, league_avg, weight=0.7):
+    return weight * team_avg + (1 - weight) * league_avg
+
+# Define caps for shots and shots on target
+HS_CAP = team_stats_home['HS'].quantile(0.95)
+HST_CAP = team_stats_home['HST'].quantile(0.95)
+AS_CAP = team_stats_away['AS'].quantile(0.95)
+AST_CAP = team_stats_away['AST'].quantile(0.95)
+
 # Iterate over remaining fixtures to predict outcomes
 for _, match in remaining_fixtures.iterrows():
     home_team = match['HomeTeam']
     away_team = match['AwayTeam']
 
-   # Use overall averages if team stats are missing
-    hs_avg = team_stats_home['HS'].mean() if home_team not in team_stats_home.index else team_stats_home.loc[home_team]['HS']
-    hst_avg = team_stats_home['HST'].mean() if home_team not in team_stats_home.index else team_stats_home.loc[home_team]['HST']
-    as_avg = team_stats_away['AS'].mean() if away_team not in team_stats_away.index else team_stats_away.loc[away_team]['AS']
-    ast_avg = team_stats_away['AST'].mean() if away_team not in team_stats_away.index else team_stats_away.loc[away_team]['AST']
+   # Blend team averages with league averages
+    if home_team in team_stats_home.index:
+        hs_avg = blended_average(team_stats_home.loc[home_team]['HS'], league_hs_avg)
+        hst_avg = blended_average(team_stats_home.loc[home_team]['HST'], league_hst_avg)
+    else:
+        hs_avg = league_hs_avg
+        hst_avg = league_hst_avg
 
-    # Use current standings for goal differences
-    home_team_goal_diff = standings[home_team]['goal_difference']
-    away_team_goal_diff = standings[away_team]['goal_difference']
+    if away_team in team_stats_away.index:
+        as_avg = blended_average(team_stats_away.loc[away_team]['AS'], league_as_avg)
+        ast_avg = blended_average(team_stats_away.loc[away_team]['AST'], league_ast_avg)
+    else:
+        as_avg = league_as_avg
+        ast_avg = league_ast_avg
+
+    # Cap extreme values
+    hs_avg = min(hs_avg, HS_CAP)
+    hst_avg = min(hst_avg, HST_CAP)
+    as_avg = min(as_avg, AS_CAP)
+    ast_avg = min(ast_avg, AST_CAP)
 
     # Prepare input features
     input_features_dict = {
@@ -158,7 +197,7 @@ for _, match in remaining_fixtures.iterrows():
         'HST': hst_avg,
         'AS': as_avg,
         'AST': ast_avg,
-        'GoalDifference': home_team_goal_diff - away_team_goal_diff,
+        #'GoalDifference': home_team_goal_diff - away_team_goal_diff,
         'ShotsEfficiency_Home': hst_avg / hs_avg if hs_avg != 0 else 0,
         'ShotsEfficiency_Away': ast_avg / as_avg if as_avg != 0 else 0
     }
@@ -179,14 +218,21 @@ for _, match in remaining_fixtures.iterrows():
     prediction = model.predict(input_df_scaled)[0]
     prediction_proba = model.predict_proba(input_df_scaled)[0]
 
-    
-   # Adjust goal margin based on prediction probabilities
-    if prediction == 2:  # Home win
-        mean_goals = 1 + (prediction_proba[2] * 2)
-    elif prediction == 1:  # Draw
+    # Smooth the probabilities
+    smoothed_proba = prediction_proba ** (1 / 2)
+    smoothed_proba /= smoothed_proba.sum()
+
+    # Sample the outcome based on smoothed probabilities
+    outcome = np.random.choice(model.classes_, p=smoothed_proba)
+
+
+    # Adjust goal margin based on prediction probabilities
+    if outcome == 2:  # Home win
+        mean_goals = 1 + (smoothed_proba[2] * 2)
+    elif outcome == 1:  # Draw
         mean_goals = 1
     else:  # Away win
-        mean_goals = 1 + (prediction_proba[0] * 2)
+        mean_goals = 1 + (smoothed_proba[0] * 2)
     goal_margin = max(1, int(np.round(mean_goals)))
 
     # Update standings based on prediction
