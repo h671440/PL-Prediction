@@ -4,13 +4,14 @@ Overview
 
 This project simulates the Premier League table based on historical data, upcoming fixtures, and a trained machine learning model. It processes match statistics from previous seasons, trains a predictive model, and simulates league standings for the current season.
 
+
 The project includes the following components:
 
-Data preprocessing
-Model training
-League table simulation
-Visualization using a web interface
-Project Files
+Data preprocessing,
+Model training,
+League table simulation,
+Visualization using a web interface,
+Project Files,
 
 preprocess_data.py:
 
