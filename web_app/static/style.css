@@ -11,7 +11,7 @@ h1 {
 }
 
 .table {
-    width: 80%;
+    width: 90%;
     margin: 0 auto;
     border-collapse: collapse;
 }
@@ -19,10 +19,30 @@ h1 {
 .table th, .table td {
     border: 1px solid #ddd;
     padding: 8px;
-    text-align: center;
+    text-align: center; 
+    vertical-align: middle; 
 }
 
 .table th {
     background-color: #f2f2f2;
     font-weight: bold;
+}
+
+.table tr:hover {
+    background-color: #f1f1f1;
+}
+
+.team-logo {
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    justify-content: flex-start; 
+    text-align: left;
+    padding-left: 10px;
+}
+
+.team-logo img {
+    width: 30px;
+    height: auto;
+    flex-shrink: 0;
 }
