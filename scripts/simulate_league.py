@@ -218,8 +218,36 @@ AS_CAP = team_stats_away['AS'].quantile(0.95)
 AST_CAP = team_stats_away['AST'].quantile(0.95)
 
 # Number of simulations
-num_simulations = 10
+num_simulations = 25
 standings_list = []
+
+
+def get_goal_margin(outcome, strength_diff):
+    if outcome == 2:  # Home win
+        if strength_diff > 0:
+            # Stronger home team wins
+            max_margin = min(int(strength_diff // 5) + 2, 7)
+            max_margin = max(3, max_margin)  # Ensure at least margin of 2
+            margins = list(range(3, max_margin + 1))
+            weights = [1 / (i - 2) for i in margins]  # Decreasing weights
+            weights = [w / sum(weights) for w in weights]
+            goal_margin = np.random.choice(margins, p=weights)
+        else:
+            goal_margin = random.choice([1, 2])
+    elif outcome == 0:  # Away win
+        if strength_diff < 0:
+            # Stronger away team wins
+            max_margin = min(int(-strength_diff // 5) + 2, 7)
+            max_margin = max(3, max_margin)
+            margins = list(range(3, max_margin + 1))
+            weights = [1 / (i - 2) for i in margins]
+            weights = [w / sum(weights) for w in weights]
+            goal_margin = np.random.choice(margins, p=weights)
+        else:
+            goal_margin = random.choice([1, 2])
+    else:
+        goal_margin = 0
+    return goal_margin
 
 for simulation in range(num_simulations):
     print(f"Starting simulation {simulation + 1}...")
@@ -328,18 +356,15 @@ for simulation in range(num_simulations):
         else:
             # Predict the match outcome
             prediction_proba = model.predict_proba(pd.DataFrame([input_features_dict])[features])[0]
+            strength_diff = 0  # Default strength difference if not available
+
 
         # Sample the outcome based on probabilities
         outcome = np.random.choice(model.classes_, p=prediction_proba)
 
-          # Adjust goal margin for more realistic scoring
-        if outcome == 2:  # Home win
-            goal_margin = random.choices([1, 2, 3], weights=[0.6, 0.3, 0.1])[0]
-        elif outcome == 1:  # Draw
-            goal_margin = 0
-        elif outcome == 0:  # Away win
-            goal_margin = random.choices([1, 2, 3], weights=[0.6, 0.3, 0.1])[0]
-            
+         # Calculate goal margin based on strength difference
+        goal_margin = get_goal_margin(outcome, strength_diff)
+
         # Update standings based on sampled outcome
         if outcome == 2:  # Home win
             standings[home_team]['points'] += 3
