@@ -115,3 +115,16 @@ Limitations:
 Predictions rely on historical data, which may not fully represent current team performance.
 Team strength values are static and do not account for dynamic changes during the season.
 Specially Ipswich Town is no data about since they have not been in the premier league for a while.
+
+
+
+TABLE:
+
+
+<img width="1113" alt="Skjermbilde 2024-11-14 kl  15 10 30" src="https://github.com/user-attachments/assets/4331a681-9568-4773-81cd-11848875629c">
+
+
+
+<img width="1071" alt="Skjermbilde 2024-11-14 kl  15 10 50" src="https://github.com/user-attachments/assets/f0afd547-5b35-4c84-836a-964cbe69e745">
+
+
