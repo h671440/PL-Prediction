@@ -208,7 +208,7 @@ league_hst_avg = team_stats_home['HST'].mean()
 league_as_avg = team_stats_away['AS'].mean()
 league_ast_avg = team_stats_away['AST'].mean()
 
-def blended_average(team_avg, league_avg, weight=0.7):
+def blended_average(team_avg, league_avg, weight=0.85):
     return weight * team_avg + (1 - weight) * league_avg
 
 # Define caps for shots and shots on target
@@ -218,7 +218,7 @@ AS_CAP = team_stats_away['AS'].quantile(0.95)
 AST_CAP = team_stats_away['AST'].quantile(0.95)
 
 # Number of simulations
-num_simulations = 3
+num_simulations = 10
 standings_list = []
 
 for simulation in range(num_simulations):
@@ -293,29 +293,57 @@ for simulation in range(num_simulations):
             'ShotsEfficiency_Away': ast_avg / as_avg if as_avg != 0 else 0,
         }
 
-        # Add team strength features if present in the saved features list
-        if 'HomeTeamStrength' in features:
-            input_features_dict['HomeTeamStrength'] = df[df['HomeTeam'] == home_team]['HomeTeamStrength'].mean()
-        if 'AwayTeamStrength' in features:
-            input_features_dict['AwayTeamStrength'] = df[df['AwayTeam'] == away_team]['AwayTeamStrength'].mean()
+      # Add team strength features if present in the saved features list
+        if 'HomeTeamStrength' in features and 'AwayTeamStrength' in features:
+            home_strength = df[df['HomeTeam'] == home_team]['HomeTeamStrength'].mean()
+            away_strength = df[df['AwayTeam'] == away_team]['AwayTeamStrength'].mean()
+            input_features_dict['HomeTeamStrength'] = home_strength
+            input_features_dict['AwayTeamStrength'] = away_strength
 
-        # Build the input DataFrame with the expected features in the correct order
-        input_df = pd.DataFrame([input_features_dict])
+            # Bias the outcome probability based on strength difference
+            strength_diff = home_strength - away_strength
+            prediction_proba = model.predict_proba(pd.DataFrame([input_features_dict])[features])[0]
 
-        # Reorder columns to match the saved features list
-        input_df = input_df[features]
+            # Adjust probabilities based on team strength
+            bias_adjustment = np.zeros_like(prediction_proba)
 
-        # Predict the match outcome
-        prediction_proba = model.predict_proba(input_df)[0]
+            if strength_diff > 0:
+                # Home team is stronger
+                bias_adjustment[0] -= 0.25  # Decrease away win probability
+                bias_adjustment[2] += 0.25  # Increase home win probability
+            elif strength_diff < 0:
+                # Away team is stronger
+                bias_adjustment[0] += 0.25  # Increase away win probability
+                bias_adjustment[2] -= 0.25  # Decrease home win probability
+
+            if strength_diff != 0:
+                bias_adjustment[1] -= 0.15  # Decrease draw probability
+
+            # Apply bias adjustments
+            prediction_proba += bias_adjustment
+
+            # Ensure probabilities are within range
+            prediction_proba = np.clip(prediction_proba, 0, 1)
+            prediction_proba /= prediction_proba.sum()  # Normalize to sum to 1
+        else:
+            # Predict the match outcome
+            prediction_proba = model.predict_proba(pd.DataFrame([input_features_dict])[features])[0]
 
         # Sample the outcome based on probabilities
         outcome = np.random.choice(model.classes_, p=prediction_proba)
-        goal_margin = random.choice([1, 2, 3])
 
+          # Adjust goal margin for more realistic scoring
+        if outcome == 2:  # Home win
+            goal_margin = random.choices([1, 2, 3], weights=[0.6, 0.3, 0.1])[0]
+        elif outcome == 1:  # Draw
+            goal_margin = 0
+        elif outcome == 0:  # Away win
+            goal_margin = random.choices([1, 2, 3], weights=[0.6, 0.3, 0.1])[0]
+            
         # Update standings based on sampled outcome
         if outcome == 2:  # Home win
             standings[home_team]['points'] += 3
-            standings[home_team]['goal_difference'] += goal_margin
+            standings[home_team]['goal_difference'] += goal_margin 
             standings[away_team]['goal_difference'] -= goal_margin
         elif outcome == 1:  # Draw
             standings[home_team]['points'] += 1
@@ -324,7 +352,7 @@ for simulation in range(num_simulations):
         elif outcome == 0:  # Away win
             standings[away_team]['points'] += 3
             standings[away_team]['goal_difference'] += goal_margin
-            standings[home_team]['goal_difference'] -= goal_margin
+            standings[home_team]['goal_difference'] -= goal_margin 
 
     # Convert standings to DataFrame for this simulation
     standings_df = pd.DataFrame.from_dict(standings, orient='index').reset_index().rename(columns={'index': 'Team'})
